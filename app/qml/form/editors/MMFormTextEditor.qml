@@ -68,6 +68,13 @@ MMPrivateComponents.MMBaseSingleLineInput {
     root.rememberValueBoxClicked( checkboxChecked )
   }
 
+  textField.background: Rectangle {
+    color: "#ffffff"
+    border.color: "#c0c0c0"
+    border.width: 1
+    radius: 0
+  }
+
   onTextEdited: function ( text ) {
     let val = text
     if ( root._field.isNumeric )

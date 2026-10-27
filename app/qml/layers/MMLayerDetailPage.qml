@@ -1,3 +1,4 @@
+
 /***************************************************************************
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
@@ -16,19 +17,17 @@ import mm 1.0 as MM
 import "../components" as MMComponents
 import "../inputs"
 
-// Do not use MMPage here
 Page {
   id: root
 
-  // Qt 6.9+ auto-applies safe area padding; child MMPage instances handle it manually.
   topPadding: 0
   bottomPadding: 0
   leftPadding: 0
   rightPadding: 0
 
   signal close()
-  signal featureClicked( var featurePair )
-  signal addFeatureClicked( var targetLayer )
+  signal featureClicked(var featurePair)
+  signal addFeatureClicked(var targetLayer)
 
   property var layerTreeNode: null
 
@@ -41,7 +40,7 @@ Page {
     }
   }
 
-  Keys.onReleased: function( event ) {
+  Keys.onReleased: function(event) {
     if (event.key === Qt.Key_Back || event.key === Qt.Key_Escape) {
       event.accepted = true
       root.closePage()
@@ -50,9 +49,7 @@ Page {
 
   SwipeView {
     id: content
-
     anchors.fill: parent
-
     interactive: layerDetailData.isVectorLayer
   }
 
@@ -60,8 +57,6 @@ Page {
     id: layerUnavailablePageComponent
 
     MMComponents.MMPage {
-      id: layerUnavailablePage
-
       pageHeader.title: layerDetailData.name
       onBackClicked: root.closePage()
 
@@ -72,10 +67,9 @@ Page {
         MMComponents.MMMessage {
           anchors.centerIn: parent
           width: parent.width - 2 * __style.margin20
-
           image: __style.negativeMMSymbolImage
-          title: qsTr( "Layer unavailable" )
-          description: qsTr( "This layer couldn't be loaded. Check your connection or contact your administrator." )
+          title: qsTr("Layer unavailable")
+          description: qsTr("This layer couldn't be loaded. Check your connection or contact your administrator.")
         }
       }
     }
@@ -100,38 +94,39 @@ Page {
           width: scrollview.width
           spacing: 0
 
-          MMComponents.MMListSpacer { height: __style.spacing20 }
+          MMComponents.MMListSpacer {
+            height: __style.spacing20
+          }
 
-          // visibility
           MMSwitchInput {
             width: parent.width
-
-            title: qsTr( "Settings" )
-            text: qsTr( "Visible on map" )
+            title: qsTr("Settings")
+            text: qsTr("Visible on map")
             checked: layerDetailData.isVisible
 
             onToggled: {
-              __activeProject.switchLayerTreeNodeVisibility( layerDetailData.layerTreeNode )
+              __activeProject.switchLayerTreeNodeVisibility(
+                layerDetailData.layerTreeNode)
             }
           }
 
-          MMComponents.MMListSpacer { height: __style.spacing20 }
+          MMComponents.MMListSpacer {
+            height: __style.spacing20
+          }
 
-          // legend
           Column {
             id: legendWrapper
 
             property real border: __style.margin12
 
             width: parent.width
-            height: legend.height + symbologyTitle.height + 2 * legendWrapper.border + legendWrapper.spacing
-
+            height: legend.height + symbologyTitle.height
+                   + 2 * legendWrapper.border + legendWrapper.spacing
             spacing: __style.margin4
 
             MMComponents.MMText {
               id: symbologyTitle
-
-              text: qsTr( "Legend" )
+              text: qsTr("Legend")
               font: __style.p6
             }
 
@@ -139,90 +134,87 @@ Page {
               id: legendItem
 
               width: parent.width
-              height: parent.height - symbologyTitle.height - legendWrapper.spacing
-
+              height: parent.height - symbologyTitle.height
+                     - legendWrapper.spacing
               color: __style.polarColor
               radius: __style.radius12
 
               Item {
                 height: parent.height - 2 * legendWrapper.border
                 width: parent.width - 2 * legendWrapper.border
-
                 x: legendWrapper.border
                 y: legendWrapper.border
 
                 Image {
                   id: legend
-
-                  sourceSize: Qt.size( parent.width, parent.height )
+                  sourceSize: Qt.size(parent.width, parent.height)
 
                   source: {
-                    __layerDetailLegendImageProvider.setData( layerDetailData )
+                    __layerDetailLegendImageProvider.setData(layerDetailData)
                     return "image://LayerDetailLegendImageProvider/0"
                   }
 
-                  cache: false // In future - cache based on layer id
+                  cache: false
                 }
               }
             }
           }
 
-          MMComponents.MMListSpacer { height: __style.spacing20 }
+          MMComponents.MMListSpacer {
+            height: __style.spacing20
+          }
 
           Column {
             id: layerAttribution
 
             width: parent.width
-            height: 1.5 * __style.row63 + attributionTitle.height + 2 * layerAttribution.border
+            height: 1.5 * __style.row63 + attributionTitle.height
+                   + 2 * layerAttribution.border
 
-            visible: __inputUtils.layerAttribution( layerDetailData.mapLayer ) !== ""
+            visible: __inputUtils.layerAttribution(
+                       layerDetailData.mapLayer) !== ""
 
             property real border: __style.margin12
-
             spacing: __style.margin4
 
             MMComponents.MMText {
               id: attributionTitle
-
-              text: qsTr( "Attribution" )
+              text: qsTr("Attribution")
               font: __style.p6
             }
 
             Rectangle {
-              id: attributionItem
-
               width: parent.width
               height: 1.5 * __style.row63
-
               color: __style.polarColor
               radius: __style.radius12
 
               Item {
                 height: parent.height - 2 * layerAttribution.border
                 width: parent.width - 2 * layerAttribution.border
-
                 x: legendItem.x + layerAttribution.border
                 y: legendItem.y - layerAttribution.border
-
 
                 Flickable {
                   id: flickableItem
                   clip: true
-
                   width: parent.width
                   height: parent.height
                   contentHeight: attributionText.height
                   contentWidth: width
-                  maximumFlickVelocity: __androidUtils.isAndroid ? __style.scrollVelocityAndroid : maximumFlickVelocity
+
+                  maximumFlickVelocity: __androidUtils.isAndroid
+                                        ? __style.scrollVelocityAndroid
+                                        : maximumFlickVelocity
 
                   Text {
                     id: attributionText
-
                     width: parent.width
                     font: __style.p5
                     color: __style.nightColor
                     wrapMode: Text.WordWrap
-                    text: __inputUtils.layerAttribution(layerDetailData.mapLayer)
+                    text: __inputUtils.layerAttribution(
+                            layerDetailData.mapLayer)
                   }
 
                   ScrollBar.vertical: ScrollBar {}
@@ -241,17 +233,25 @@ Page {
     MMFeaturesListPage {
       selectedLayer: layerDetailData.vectorLayer
 
-      onFeatureClicked: function( featurePair ) {
-        root.featureClicked( featurePair )
+      onFeatureClicked: function(featurePair) {
+        root.featureClicked(featurePair)
       }
 
-      onAddFeatureClicked: function ( toLayer ) {
-        root.addFeatureClicked( toLayer )
+      onAddFeatureClicked: function(toLayer) {
+        root.addFeatureClicked(toLayer)
       }
 
       onBackClicked: function() {
         root.closePage()
       }
+    }
+  }
+
+  Component {
+    id: spreadsheetPageComponent
+
+    MMSpreadsheetPage {
+      layer: layerDetailData.vectorLayer
     }
   }
 
@@ -268,85 +268,73 @@ Page {
       MMComponents.MMToolbarButton {
         visible: layerDetailData.isVectorLayer
 
-        text: qsTr( "Features" )
+        text: qsTr("Features")
         iconSource: __style.featuresIcon
         iconSourceSelected: __style.featuresFilledIcon
 
         onClicked: {
-          if ( layerDetailData.isVectorLayer ) {
-            selectableToolbar.index = 0
-            content.setCurrentIndex( 0 )
-          }
+          selectableToolbar.index = 0
+          content.setCurrentIndex(0)
+        }
+      }
+
+      MMComponents.MMToolbarButton {
+        visible: layerDetailData.isVectorLayer
+
+        text: qsTr("Spreadsheet")
+        iconSource: __style.featuresIcon
+        iconSourceSelected: __style.featuresFilledIcon
+
+        onClicked: {
+          selectableToolbar.index = 1
+          content.setCurrentIndex(1)
         }
       }
 
       MMComponents.MMToolbarButton {
         id: layerInfoButton
 
-        text: qsTr( "Layer info" )
+        text: qsTr("Layer info")
         iconSource: __style.infoIcon
         iconSourceSelected: __style.infoFilledIcon
+
         onClicked: {
-          if ( layerDetailData.isVectorLayer ) {
-            selectableToolbar.index = 1
-            content.setCurrentIndex( 1 )
-          }
+          selectableToolbar.index = 2
+          content.setCurrentIndex(2)
         }
       }
     }
   }
 
   Component.onCompleted: {
-
-    //
-    // LayerDetail can show (a) features list and (b) layer info
-    //  - a: shown if the selected layer is vector layer (can have features) *
-    //  - b: shown for all types of layers except for no-geometry vector layers,
-    //       we do not have anything to show for such layers for now (we only
-    //       show legend and if the layer is visible on the map - both unrelated)
-    //
-    // * there is an exception, we do not want to show features of the map sketches layer
-    //
-
-    if ( !layerDetailData.isValid ) {
-      content.addItem( layerUnavailablePageComponent.createObject( content ) )
+    if (!layerDetailData.isValid) {
+      content.addItem(layerUnavailablePageComponent.createObject(content))
       return
     }
 
-    const isSketchingLayer = layerDetailData.layerId === __activeProject.mapSketchesLayerId()
+    const isSketchingLayer =
+      layerDetailData.layerId === __activeProject.mapSketchesLayerId()
 
-    if ( layerDetailData.isVectorLayer && !isSketchingLayer ) {
-      content.addItem( featuresListPageComponent.createObject( content, { hasToolbar: internal.withToolbar } ) )
+    if (layerDetailData.isVectorLayer && !isSketchingLayer) {
+      content.addItem(
+        featuresListPageComponent.createObject(
+          content, { hasToolbar: internal.withToolbar }))
+      content.addItem(spreadsheetPageComponent.createObject(content))
     }
 
-    if ( !layerDetailData.isVectorLayer || layerDetailData.isSpatial )
-    {
-      content.addItem( layerDetailPageComponent.createObject( content ) )
+    if (!layerDetailData.isVectorLayer || layerDetailData.isSpatial) {
+      content.addItem(layerDetailPageComponent.createObject(content))
     }
   }
 
   QtObject {
     id: internal
-
     property bool withToolbar: content.count > 1
   }
 
   function closePage() {
-
-    //
-    // LayerDetail is instantiated via StackView in layers panels. It uses its transitions (animations)
-    // for creating (moving to the right) and destroying this page (moving back to the left).
-    // However, as this page contains a SwipeView, moving back to the left would reveal what if on the
-    // first item in the SwipeView. Thus, we remove the first item so that there is no visual noise.
-    // It is a kind of a hack.
-    //
-
-    if ( content.count === 2 )
-    {
-      if ( content.currentIndex === 1 )
-      {
-        content.takeItem( 0 )
-      }
+    if (content.count === 2 && content.currentIndex === 1) {
+      content.takeItem(0)
     }
 
     root.close()

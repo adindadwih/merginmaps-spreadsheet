@@ -150,6 +150,7 @@ set(MM_QML
     inputs/MMTextInput.qml
     inputs/MMSwitchInput.qml
     layers/MMFeaturesListPage.qml
+    layers/MMSpreadsheetPage.qml
     layers/MMLayerDetailPage.qml
     layers/MMLayersList.qml
     layers/MMLayersListPage.qml

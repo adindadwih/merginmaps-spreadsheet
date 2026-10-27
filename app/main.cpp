@@ -92,6 +92,7 @@
 #include "featuresmodel.h"
 #include "staticfeaturesmodel.h"
 #include "layerfeaturesmodel.h"
+#include "spreadsheetmodel.h"
 #include "relationfeaturesmodel.h"
 #include "relationreferencefeaturesmodel.h"
 #include "fieldvalidator.h"
@@ -368,6 +369,7 @@ void initDeclarative()
   qmlRegisterType< FeaturesModel >( "mm", 1, 0, "FeaturesModel" );
   qmlRegisterType< StaticFeaturesModel >( "mm", 1, 0, "StaticFeaturesModel" );
   qmlRegisterType< LayerFeaturesModel >( "mm", 1, 0, "LayerFeaturesModel" );
+  qmlRegisterType< SpreadsheetModel >( "mm", 1, 0, "SpreadsheetModel" );
   qmlRegisterType< BluetoothDiscoveryModel >( "mm", 1, 0, "BluetoothDiscoveryModel" );
   qmlRegisterType< PositionTrackingManager >( "mm", 1, 0, "PositionTrackingManager" );
   qmlRegisterType< PositionTrackingHighlight >( "mm", 1, 0, "PositionTrackingHighlight" );

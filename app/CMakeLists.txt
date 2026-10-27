@@ -74,6 +74,7 @@ set(MM_SRCS
     invitationsmodel.cpp
     invitationsproxymodel.cpp
     layerfeaturesmodel.cpp
+    spreadsheetmodel.cpp
     layersmodel.cpp
     recordinglayersproxymodel.cpp
     main.cpp
@@ -172,6 +173,7 @@ set(MM_HDRS
     invitationsmodel.h
     invitationsproxymodel.h
     layerfeaturesmodel.h
+    spreadsheetmodel.h
     layersmodel.h
     recordinglayersproxymodel.h
     mapthemesmodel.h
