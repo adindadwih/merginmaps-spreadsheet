@@ -3,8 +3,8 @@
 
 #include <QAbstractTableModel>
 #include <QPointer>
-#include <QgsFeature>
-#include <QgsVectorLayer>
+#include <qgsfeature.h>
+#include <qgsvectorlayer.h>
 
 class SpreadsheetModel : public QAbstractTableModel
 {
