@@ -10,8 +10,10 @@ on:
       - 'core/**'
       - 'scripts/**'
       - 'cmake/**'
+      - 'cmake_templates/**'
       - 'CMakeLists.txt'
       - 'vcpkg.json'
+      - 'VCPKG_BASELINE'
       - '.github/workflows/android-test.yml'
 
 permissions:
@@ -20,20 +22,82 @@ permissions:
 jobs:
   android-build:
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    timeout-minutes: 360
+
+    env:
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+      SDK_PLATFORM: android-36
+      SDK_BUILD_TOOLS: 36.0.0
+      VCPKG_ROOT: ${{ github.workspace }}/vcpkg
 
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
 
-      - name: Check source files
+      - name: Install system dependencies
         run: |
-          git status --short
-          test -f CMakeLists.txt
-          test -f VCPKG_BASELINE
-          test -f vcpkg.json
+          sudo apt-get update
+          sudo apt-get install -y \
+            autoconf-archive automake bison flex gettext \
+            libtool lcov mono-complete ninja-build \
+            pkg-config nasm zip unzip
 
-      - name: Report build prerequisites
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: zulu
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android NDK and SDK packages
         run: |
-          echo "Source checkout successful."
-          echo "Next step: configure Qt Android, Android SDK/NDK and vcpkg."
+          sdkmanager \
+            "platform-tools" \
+            "platforms;${SDK_PLATFORM}" \
+            "build-tools;${SDK_BUILD_TOOLS}" \
+            "ndk;27.2.12479018"
+          echo "ANDROID_NDK_HOME=${ANDROID_SDK_ROOT}/ndk/27.2.12479018" >> "$GITHUB_ENV"
+
+      - name: Install CMake
+        uses: lukka/get-cmake@latest
+        with:
+          cmakeVersion: 3.31.6
+
+      - name: Install vcpkg
+        run: |
+          git clone https://github.com/microsoft/vcpkg.git "$VCPKG_ROOT"
+          git -C "$VCPKG_ROOT" checkout "$(cat VCPKG_BASELINE)"
+          "$VCPKG_ROOT/bootstrap-vcpkg.sh"
+
+      - name: Configure Android ARM64
+        run: |
+          export PATH="$VCPKG_ROOT:$PATH"
+          cmake \
+            -S . \
+            -B build-android \
+            -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" \
+            -DVCPKG_HOST_TRIPLET=x64-linux \
+            -DVCPKG_TARGET_TRIPLET=arm64-android \
+            -DVCPKG_INSTALL_OPTIONS="--allow-unsupported" \
+            -DANDROID_ABI=arm64-v8a \
+            -DQT_ANDROID_ABIS=arm64-v8a \
+            -DANDROID_SDK_ROOT="$ANDROID_SDK_ROOT" \
+            -DUSE_MM_SERVER_API_KEY=FALSE \
+            -DWITH_TRIMBLE_PROVIDERS=FALSE \
+            -DQT_ANDROID_SIGN_APK=No
+
+      - name: Build APK
+        run: |
+          cmake --build build-android --target apk --parallel 2
+          find build-android -type f -name '*.apk' -print
+
+      - name: Upload APK files
+        uses: actions/upload-artifact@v4
+        with:
+          name: Android-ARM64-APK
+          path: build-android/**/*.apk
+          if-no-files-found: error
