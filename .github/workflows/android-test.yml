@@ -7,124 +7,159 @@ on:
     branches:
       - feature/spreadsheet-view
     paths:
+      - 'vcpkg/**'
+      - 'vcpkg.json'
+      - 'VCPKG_BASELINE'
       - 'app/**'
       - 'core/**'
       - 'scripts/**'
       - 'cmake/**'
       - 'cmake_templates/**'
       - 'CMakeLists.txt'
-      - 'vcpkg.json'
-      - 'VCPKG_BASELINE'
       - '.github/workflows/android-test.yml'
 
 permissions:
   contents: read
 
+concurrency:
+  group: android-test-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   android-build:
-    runs-on: ubuntu-24.04
+    runs-on: macos-26
     timeout-minutes: 360
 
     env:
-      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
-      SDK_PLATFORM: android-35
-      SDK_BUILD_TOOLS: 35.0.0
-      NDK_VERSION: 27.2.12479018
+      NDK_VERSION_FULL: r27c
+      JDK_VERSION: '17'
+      SDK_PLATFORM: android-36
+      SDK_BUILD_TOOLS: 36.0.0
+      CMAKE_VERSION: '4.3.2'
       VCPKG_ROOT: ${{ github.workspace }}/vcpkg
+      VCPKG_BINARY_SOURCES: clear
 
     steps:
-      - name: Checkout source
+      - name: Checkout spreadsheet source
         uses: actions/checkout@v4
+        with:
+          path: mm
 
-      - name: Install system dependencies
+      - name: Install build dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            autoconf-archive automake bison flex gettext \
-            libtool lcov mono-complete ninja-build \
-            pkg-config nasm zip unzip curl git \
-            build-essential libgl1-mesa-dev
+          brew install gnupg automake bison flex gnu-sed \
+            autoconf-archive libtool gettext lcov openssl mono
+
+          echo "$(brew --prefix bison)/bin" >> "$GITHUB_PATH"
+          echo "$(brew --prefix flex)/bin" >> "$GITHUB_PATH"
+          echo "$(brew --prefix gettext)/bin" >> "$GITHUB_PATH"
+
+      - name: Install CMake and Ninja
+        uses: lukka/get-cmake@latest
+        with:
+          cmakeVersion: ${{ env.CMAKE_VERSION }}
+
+      - name: Setup Xcode
+        uses: maxim-lobanov/setup-xcode@v1.7.0
+        with:
+          xcode-version: '26.4.1'
+
+      - name: Setup Android NDK
+        uses: nttld/setup-ndk@v1
+        id: setup-ndk
+        with:
+          ndk-version: ${{ env.NDK_VERSION_FULL }}
+          add-to-path: true
 
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
+          java-version: ${{ env.JDK_VERSION }}
           distribution: zulu
-          java-version: '17'
 
-      
-      
-      - name: Set up Android SDK
-        run: |
-          SDKMANAGER="$(find "$ANDROID_SDK_ROOT/cmdline-tools" -type f -name sdkmanager 2>/dev/null | head -n 1)"
-
-          if [ -z "$SDKMANAGER" ]; then
-            echo "sdkmanager tidak ditemukan"
-            exit 1
-          fi
-
-          echo "Menggunakan: $SDKMANAGER"
-
-          yes | "$SDKMANAGER" --sdk_root="$ANDROID_SDK_ROOT" --licenses || true
-
-          "$SDKMANAGER" --sdk_root="$ANDROID_SDK_ROOT" \
-            "platform-tools" \
-            "platforms;android-35" \
-            "build-tools;35.0.0" \
-            "ndk;27.2.12479018"
-
-          echo "ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/27.2.12479018" >> "$GITHUB_ENV"
-          echo "ANDROID_NDK_ROOT=$ANDROID_SDK_ROOT/ndk/27.2.12479018" >> "$GITHUB_ENV"
-
-      - name: Install CMake
-        uses: lukka/get-cmake@latest
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v4
         with:
-          cmakeVersion: 3.31.6
+          packages: ''
 
-      - name: Checkout vcpkg baseline
+      - name: Install Android packages
         run: |
-          rm -rf "$VCPKG_ROOT"
-          git clone https://github.com/microsoft/vcpkg.git "$VCPKG_ROOT"
-          git -C "$VCPKG_ROOT" checkout "$(cat VCPKG_BASELINE)"
-          "$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics
+          android sdk install \
+            "platforms/${SDK_PLATFORM}" \
+            "build-tools/${SDK_BUILD_TOOLS}" \
+            platform-tools
 
-      - name: Get Android overlay ports and triplets
+      - name: Install vcpkg
+        shell: bash
         run: |
-          git clone --depth 1 https://github.com/MerginMaps/mobile-sdk.git mobile-sdk
-          test -d mobile-sdk/vcpkg-overlay/ports
-          test -d mobile-sdk/vcpkg-overlay/triplets
+          mkdir -p "$VCPKG_ROOT"
+          cd "$VCPKG_ROOT"
+          git init
+          git remote add origin https://github.com/microsoft/vcpkg.git
+          git fetch origin master
+          git checkout "$(cat "$GITHUB_WORKSPACE/mm/VCPKG_BASELINE")"
+          ./bootstrap-vcpkg.sh
 
-      - name: Configure Android ARM64
+      - name: Calculate build number
         run: |
-          export PATH="$VCPKG_ROOT:$PATH"
+          echo "MM_VERSION_CODE=${GITHUB_RUN_NUMBER}${GITHUB_RUN_ATTEMPT}" >> "$GITHUB_ENV"
+
+      - name: Configure ARM64 Android app
+        env:
+          ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
+        run: |
           cmake \
-            -S . \
-            -B build-android \
+            -S "$GITHUB_WORKSPACE/mm" \
+            -B "$GITHUB_WORKSPACE/build-mm" \
             -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_MAKE_PROGRAM=/usr/bin/ninja \
             -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" \
-            -DVCPKG_HOST_TRIPLET=x64-linux \
+            -DVCPKG_HOST_TRIPLET=arm64-osx \
             -DVCPKG_TARGET_TRIPLET=arm64-android \
-            -DVCPKG_OVERLAY_PORTS="${{ github.workspace }}/mobile-sdk/vcpkg-overlay/ports" \
-            -DVCPKG_OVERLAY_TRIPLETS="${{ github.workspace }}/mobile-sdk/vcpkg-overlay/triplets" \
             -DVCPKG_INSTALL_OPTIONS="--allow-unsupported" \
             -DANDROID_ABI=arm64-v8a \
             -DQT_ANDROID_ABIS=arm64-v8a \
-            -DANDROID_PLATFORM=android-24 \
             -DANDROID_SDK_ROOT="$ANDROID_SDK_ROOT" \
             -DANDROID_NDK_HOME="$ANDROID_NDK_HOME" \
-            -DUSE_MM_SERVER_API_KEY=FALSE \
+            -DANDROID_NDK_VERSION="$ANDROID_NDK_VERSION" \
+            -DANDROID_BUILD_TOOLS_VERSION="$SDK_BUILD_TOOLS" \
+            -DQT_ANDROID_SIGN_APK=No \
+            -DQT_ANDROID_SIGN_AAB=No \
+            -DUSE_MM_SERVER_API_KEY=No \
             -DWITH_TRIMBLE_PROVIDERS=FALSE \
-            -DQT_ANDROID_SIGN_APK=No
+            -DUSE_KEYCHAIN=No
 
       - name: Build APK
+        env:
+          ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
         run: |
-          cmake --build build-android --target apk --parallel 2
-          find build-android -type f -name '*.apk' -print
+          cmake --build "$GITHUB_WORKSPACE/build-mm" \
+            --target apk --parallel 2
 
-      - name: Upload APK
+      - name: Collect APK
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/apk-output"
+
+          find "$GITHUB_WORKSPACE/build-mm" \
+            -type f -name '*.apk' -print
+
+          APK_PATH="$(find "$GITHUB_WORKSPACE/build-mm" \
+            -type f -name '*.apk' | head -n 1)"
+
+          if [ -z "$APK_PATH" ]; then
+            echo "APK tidak ditemukan setelah build."
+            exit 1
+          fi
+
+          cp "$APK_PATH" \
+            "$GITHUB_WORKSPACE/apk-output/merginmaps-${GITHUB_RUN_NUMBER}-arm64-v8a.apk"
+
+          ls -lh "$GITHUB_WORKSPACE/apk-output"
+
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Android-ARM64-APK
-          path: build-android/**/*.apk
+          name: MerginMaps-Spreadsheet-ARM64-APK
+          path: apk-output/*.apk
           if-no-files-found: error
+          retention-days: 7
