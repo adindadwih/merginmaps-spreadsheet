@@ -1,0 +1,39 @@
+name: Android Test APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/spreadsheet-view
+    paths:
+      - 'app/**'
+      - 'core/**'
+      - 'scripts/**'
+      - 'cmake/**'
+      - 'CMakeLists.txt'
+      - 'vcpkg.json'
+      - '.github/workflows/android-test.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  android-build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Check source files
+        run: |
+          git status --short
+          test -f CMakeLists.txt
+          test -f VCPKG_BASELINE
+          test -f vcpkg.json
+
+      - name: Report build prerequisites
+        run: |
+          echo "Source checkout successful."
+          echo "Next step: configure Qt Android, Android SDK/NDK and vcpkg."
