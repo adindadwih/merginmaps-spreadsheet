@@ -1,9 +1,10 @@
 #include "spreadsheetmodel.h"
 
-#include <QgsFields>
-#include <QgsFeatureRequest>
-#include <QgsField>
-#include <QgsVectorDataProvider>
+#include <qgsfields.h>
+#include <qgsfeaturerequest.h>
+#include <qgsfield.h>
+#include <qgsvectordataprovider.h>
+
 
 SpreadsheetModel::SpreadsheetModel(QObject *parent)
   : QAbstractTableModel(parent)
