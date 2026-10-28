@@ -1,3 +1,4 @@
+
 name: Android Test APK
 
 on:
@@ -26,8 +27,9 @@ jobs:
 
     env:
       ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
-      SDK_PLATFORM: android-36
-      SDK_BUILD_TOOLS: 36.0.0
+      SDK_PLATFORM: android-35
+      SDK_BUILD_TOOLS: 35.0.0
+      NDK_VERSION: 27.2.12479018
       VCPKG_ROOT: ${{ github.workspace }}/vcpkg
 
     steps:
@@ -40,7 +42,8 @@ jobs:
           sudo apt-get install -y \
             autoconf-archive automake bison flex gettext \
             libtool lcov mono-complete ninja-build \
-            pkg-config nasm zip unzip
+            pkg-config nasm zip unzip curl git \
+            build-essential libgl1-mesa-dev
 
       - name: Set up Java
         uses: actions/setup-java@v4
@@ -50,29 +53,34 @@ jobs:
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
-        with:
-          packages: ''
 
-      - name: Install Android NDK and SDK packages
+      - name: Install Android packages
         run: |
-          sdkmanager \
+          sdkmanager --sdk_root="$ANDROID_SDK_ROOT" \
             "platform-tools" \
             "platforms;${SDK_PLATFORM}" \
             "build-tools;${SDK_BUILD_TOOLS}" \
-            "ndk;27.2.12479018"
-          echo "ANDROID_NDK_HOME=${ANDROID_SDK_ROOT}/ndk/27.2.12479018" >> "$GITHUB_ENV"
+            "ndk;${NDK_VERSION}"
+          echo "ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/$NDK_VERSION" >> "$GITHUB_ENV"
+          echo "ANDROID_NDK_ROOT=$ANDROID_SDK_ROOT/ndk/$NDK_VERSION" >> "$GITHUB_ENV"
 
       - name: Install CMake
         uses: lukka/get-cmake@latest
         with:
           cmakeVersion: 3.31.6
 
-      - name: Install vcpkg
+      - name: Checkout vcpkg baseline
         run: |
           rm -rf "$VCPKG_ROOT"
           git clone https://github.com/microsoft/vcpkg.git "$VCPKG_ROOT"
           git -C "$VCPKG_ROOT" checkout "$(cat VCPKG_BASELINE)"
-          "$VCPKG_ROOT/bootstrap-vcpkg.sh"
+          "$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics
+
+      - name: Get Android overlay ports and triplets
+        run: |
+          git clone --depth 1 https://github.com/MerginMaps/mobile-sdk.git mobile-sdk
+          test -d mobile-sdk/vcpkg-overlay/ports
+          test -d mobile-sdk/vcpkg-overlay/triplets
 
       - name: Configure Android ARM64
         run: |
@@ -82,13 +90,18 @@ jobs:
             -B build-android \
             -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_MAKE_PROGRAM=/usr/bin/ninja \
             -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" \
             -DVCPKG_HOST_TRIPLET=x64-linux \
             -DVCPKG_TARGET_TRIPLET=arm64-android \
+            -DVCPKG_OVERLAY_PORTS="${{ github.workspace }}/mobile-sdk/vcpkg-overlay/ports" \
+            -DVCPKG_OVERLAY_TRIPLETS="${{ github.workspace }}/mobile-sdk/vcpkg-overlay/triplets" \
             -DVCPKG_INSTALL_OPTIONS="--allow-unsupported" \
             -DANDROID_ABI=arm64-v8a \
             -DQT_ANDROID_ABIS=arm64-v8a \
+            -DANDROID_PLATFORM=android-24 \
             -DANDROID_SDK_ROOT="$ANDROID_SDK_ROOT" \
+            -DANDROID_NDK_HOME="$ANDROID_NDK_HOME" \
             -DUSE_MM_SERVER_API_KEY=FALSE \
             -DWITH_TRIMBLE_PROVIDERS=FALSE \
             -DQT_ANDROID_SIGN_APK=No
@@ -98,7 +111,7 @@ jobs:
           cmake --build build-android --target apk --parallel 2
           find build-android -type f -name '*.apk' -print
 
-      - name: Upload APK files
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: Android-ARM64-APK
